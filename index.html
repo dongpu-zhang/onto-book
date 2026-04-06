@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工程本体：知识图谱 · 从理论到实践</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=JetBrains+Mono:wght@300;400&family=Space+Grotesk:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:       #07080f;
+    --bg2:      #0d1021;
+    --bg3:      #131629;
+    --border:   rgba(255,255,255,0.07);
+    --text:     #c8cdd8;
+    --text2:    #7a8099;
+    --gold:     #c9a84c;
+    --gold2:    #e8c97a;
+    --teal:     #3ecfcf;
+    --blue:     #4a9eff;
+    --purple:   #a78bfa;
+    --coral:    #f87171;
+    --green:    #6ee7b7;
+    --amber:    #fbbf24;
+
+    --c-onto:   #c9a84c;
+    --c-concept:#3ecfcf;
+    --c-struct: #a78bfa;
+    --c-process:#f87171;
+    --c-tech:   #4a9eff;
+    --c-example:#6ee7b7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', 'Noto Serif SC', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .book-badge {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid rgba(201,168,76,0.3);
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+  .book-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+  .header-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stat-val { color: var(--teal); margin-right: 3px; }
+
+  /* ── Layout ── */
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+  .sidebar-section { padding: 0 16px 16px; }
+  .sidebar-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 10px;
+  }
+
+  /* search */
+  .search-wrap { position: relative; margin-bottom: 16px; padding: 0 16px; }
+  .search-wrap input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px 7px 30px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-wrap input:focus { border-color: rgba(62,207,207,0.4); }
+  .search-wrap input::placeholder { color: var(--text2); }
+  .search-icon {
+    position: absolute;
+    left: 26px; top: 50%;
+    transform: translateY(-50%);
+    width: 12px; height: 12px;
+    color: var(--text2);
+    pointer-events: none;
+  }
+
+  /* legend */
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 12px;
+    user-select: none;
+    margin-bottom: 2px;
+  }
+  .legend-item:hover { background: rgba(255,255,255,0.05); }
+  .legend-item.active { background: rgba(255,255,255,0.07); }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-name { color: var(--text); flex: 1; }
+  .legend-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+  }
+
+  /* presets */
+  .preset-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    margin-bottom: 4px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text2);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: rgba(62,207,207,0.3); color: var(--teal); background: rgba(62,207,207,0.04); }
+  .preset-btn .preset-icon { margin-right: 6px; font-size: 12px; }
+
+  /* rel filters */
+  .rel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    font-size: 10px;
+    color: var(--text2);
+    cursor: pointer;
+    margin: 2px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .rel-chip.active { border-color: rgba(62,207,207,0.4); color: var(--teal); background: rgba(62,207,207,0.06); }
+  .rel-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* ── Graph ── */
+  #graph-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #graph { width: 100%; height: 100%; }
+
+  .graph-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.08em;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* ── Detail Panel ── */
+  #detail-panel {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateX(300px);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  #detail-panel.open { transform: translateX(0); }
+
+  .detail-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .detail-type-badge {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-bottom: 10px;
+    display: inline-block;
+  }
+  .detail-cn-name {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+  .detail-en-name {
+    font-size: 10px;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .detail-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+  .detail-body::-webkit-scrollbar { width: 3px; }
+  .detail-body::-webkit-scrollbar-track { background: transparent; }
+  .detail-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .detail-section { margin-bottom: 18px; }
+  .detail-section-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+  .detail-def {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 300;
+  }
+  .detail-prop {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .detail-prop:last-child { border-bottom: none; }
+  .detail-prop-key {
+    font-size: 9px;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.06em;
+  }
+  .detail-prop-val {
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .conn-list { display: flex; flex-direction: column; gap: 4px; }
+  .conn-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--bg3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .conn-item:hover { background: rgba(255,255,255,0.06); }
+  .conn-rel {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .conn-name {
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .conn-dir { font-size: 9px; color: var(--text2); }
+
+  .close-btn {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 24px; height: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text2);
+    font-size: 12px;
+    transition: all 0.15s;
+    z-index: 5;
+  }
+  .close-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  /* scrollbar global */
+  aside::-webkit-scrollbar { width: 3px; }
+  aside::-webkit-scrollbar-track { background: transparent; }
+  aside::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <span class="book-badge">OntoHighDim</span>
+    <span class="book-title">工程本体：从理论到实践 · 知识图谱导读</span>
+  </div>
+  <div class="header-stats">
+    <span><span class="stat-val">38</span>概念节点</span>
+    <span><span class="stat-val">47</span>语义关系</span>
+    <span><span class="stat-val">5</span>关系类型</span>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="6.5" cy="6.5" r="4"/><path d="m10.5 10.5 3 3"/>
+      </svg>
+      <input type="text" id="search-input" placeholder="搜索节点…">
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">节点类型</div>
+      <div id="legend"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">关系类型</div>
+      <div id="rel-filters"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">预设视图</div>
+      <button class="preset-btn" onclick="applyPreset('all')"><span class="preset-icon">🌐</span>全图总览</button>
+      <button class="preset-btn" onclick="applyPreset('entropy')"><span class="preset-icon">⚡</span>熵减主干</button>
+      <button class="preset-btn" onclick="applyPreset('ai')"><span class="preset-icon">🤖</span>AI时代价值链</button>
+      <button class="preset-btn" onclick="applyPreset('philo')"><span class="preset-icon">⚖️</span>哲学 vs 工程</button>
+      <button class="preset-btn" onclick="applyPreset('highdim')"><span class="preset-icon">∞</span>高维几何接口</button>
+      <button class="preset-btn" onclick="applyPreset('tech')"><span class="preset-icon">🔧</span>技术栈全景</button>
+    </div>
+  </aside>
+
+  <!-- Graph -->
+  <div id="graph-container">
+    <div id="graph"></div>
+    <div class="graph-hint">点击节点查看详情 · 拖动移动 · 滚轮缩放</div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div id="detail-panel">
+    <div style="position:relative; flex-shrink:0;">
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-header" id="detail-header"></div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────
+const RAW = {"nodes":[{"id":"onto_philo","label":"OntologyType","name":"Philosophical_Ontology","chinese_name":"哲学本体论","definition":"探究「存在」的本质：世界由什么构成、事物为何存在、存在的根本究竟是什么。源自古希腊语 ontos（存在）+ logos（学说）。","source":"导读_section_哲学本体论","props":{"core_question":"What_exists — 世界是什么？","key_thinkers":"泰勒斯, 柏拉图, 亚里士多德, 康德, 维特根斯坦, 哥德尔","entropy_metaphor":"高熵：终极追问无法收敛，知识永远处于开放不确定性中","wittgenstein_quote":"凡是可以说的，都可以说清楚；凡是不能说的，就应该保持沉默。"}},{"id":"onto_eng","label":"OntologyType","name":"Engineering_Ontology","chinese_name":"工程本体论","definition":"不追问存在本质，而是聚焦如何形式化表示概念、定义概念间关系、表达业务规则，并让机器基于这些知识进行逻辑推理。","source":"导读_section_工程本体论","props":{"core_question":"How to represent knowledge — 如何描述世界才能让机器理解？","guiding_principle":"不追求完美只追求有用；不追求永恒只追求演化；不追求全知只追求可控","entropy_metaphor":"低熵：将业务知识结构化形式化显性化，完成知识层面的熵减","strategic_value":"企业数字化、智能化的基础设施；AI时代知识管理的战略能力"}},{"id":"concept_existence","label":"Concept","name":"Existence","chinese_name":"存在","definition":"哲学本体论的核心对象：世界的本源、事物存在的根本理由。","source":"导读_section_哲学本体论","props":{"philosophical_positions":"水本源说 · 理念论 · 实体与属性 · 物自体","epistemological_limit":"超出人类感知、语言和逻辑的可触及范围","engineering_verdict":"无法落地，不可计算，工程本体论不以此为研究对象"}},{"id":"concept_entropy","label":"Concept","name":"Entropy_Reduction","chinese_name":"熵减（核心隐喻）","definition":"将高熵（混沌、无序、隐性、模糊）状态，通过结构化过程转化为低熵（有序、可计算、可复用）状态。","source":"导读_section_科学的抉择","props":{"key_formula":"结构 = 负熵的具象化形态；掌控结构 = 在局部对抗宇宙熵增","philosophical_bridge":"认知结构（哲学）→ 物理结构（科学）→ 知识结构（AI时代）","highdim_extension":"高维几何中：低熵对应流形紧致化与对称性；本体作为高维约束投影"}},{"id":"concept_high_entropy","label":"Concept","name":"High_Entropy_State","chinese_name":"高熵状态","definition":"知识处于混沌、无序、隐性、模糊、缺乏一致性的状态。","source":"导读_section_工程本体论","props":{"enterprise":"业务知识分散在文档、数据库、员工头脑中","llm":"LLM依赖统计规律猜测，无法保证陈述事实性"}},{"id":"concept_low_entropy","label":"Concept","name":"Low_Entropy_State","chinese_name":"低熵状态","definition":"知识经结构化、形式化、显性化后，处于可查询、可推理、可复用、可解释的有序状态。","source":"导读_section_工程本体论","props":{"enterprise":"形式化本体、可查询知识图谱、可执行业务规则","ai":"每个AI结论有清晰的推理路径，可解释、可审计"}},{"id":"concept_ssot","label":"Concept","name":"Single_Source_of_Truth","chinese_name":"真相的单一来源","definition":"本体作为企业知识的唯一权威来源，所有陈述均可追溯到结构化的知识定义，从根源防止大模型产生幻觉。","source":"导读_section_AI时代","props":{"mechanism":"让所有AI陈述可追溯至结构化知识而非统计推断","palantir":"Palantir核心竞争力的知识论基础"}},{"id":"concept_knowledge_structure","label":"Concept","name":"Knowledge_Structure","chinese_name":"知识结构","definition":"AI时代本体论的核心对象：将隐性、分散的知识转化为显性、形式化、可机器处理的结构体系。","source":"导读_section_AI时代","props":{"trilogy":"认知结构（哲学）→ 物理结构（科学）→ 知识结构（AI时代）","infrastructure":"企业AI Agent的业务导航系统"}},{"id":"concept_cognitive_structure","label":"Concept","name":"Cognitive_Structure","chinese_name":"认知结构","definition":"现代哲学转向后的研究对象：不再追问世界的本质，而是研究人类认知世界的方式与规律。","source":"导读_section_哲学本体论","props":{"wittgenstein":"语言的边界即思维的边界；可说与不可说的划分","godel":"任何形式系统都存在内在的不完备性"}},{"id":"concept_highdim_geo","label":"Concept","name":"HighDim_Geometry","chinese_name":"高维几何视角下的本体","definition":"将本体结构投影到高维几何框架中，探索概念空间的拓扑性质、语义流形和维度压缩规律。","source":"导读_section_附录F","props":{"book_location":"附录F — 前沿研究方向","calabi_yau":"六维紧致流形的镜像对称可类比为本体的对偶映射结构","status":"FRONTIER — 理论前沿待工程化"}},{"id":"concept_self_evolving","label":"Concept","name":"Self_Evolving_Ontology","chinese_name":"自演化本体","definition":"能够根据新知识、新业务场景自动或半自动更新自身结构的本体系统。","source":"导读_section_前沿展望","props":{"book_location":"结束语 + 附录 — 前沿展望","principle":"不追求永恒，只追求演化","entropy":"在动态环境中持续维持局部低熵，对抗业务知识自然老化"}},{"id":"concept_business_semantics","label":"Concept","name":"Business_Semantics","chinese_name":"业务语义","definition":"企业专属的概念定义、实体关系与业务规则体系，是AI Agent做出有意义判断的前提。","source":"导读_section_AI时代","props":{"llm_gap":"LLM无法理解企业专属概念和业务规则（语义缺失）","solution":"本体承载明确的业务语义，让Agent基于确定的业务定义判断"}},{"id":"struct_class_prop_rel","label":"Structure","name":"Class_Property_Relation","chinese_name":"类-属性-关系三元结构","definition":"工程本体论的基本数据结构：类（概念）、数据属性（特征）、对象属性（关系），构成可形式化操作的知识单元。","source":"导读_section_工程本体论","props":{"example":"Customer类 | 属性:姓名/联系方式/会员等级 | 关系:hasOrder","computability":"可直接转化为OWL代码，存储至数据库供AI查询"}},{"id":"struct_reasoning_logic","label":"Structure","name":"Formal_Reasoning_Logic","chinese_name":"形式推理逻辑","definition":"基于描述逻辑的严谨推理体系，支持从本体定义自动推导隐含结论。","source":"导读_section_AI时代","props":{"ai_value":"让AI每个结论都有清晰推理路径，可解释、可审计","types":"分类推理 | 一致性检验 | 属性传播 | 规则触发"}},{"id":"struct_business_rules","label":"Structure","name":"Business_Rules","chinese_name":"业务规则","definition":"以形式化方式表达的业务约束与决策逻辑，如：VIP客户享有折扣、库存充足时允许加急发货。","source":"导读_section_AI时代","props":{"language":"SWRL（语义网规则语言）","example":"IF 客户.等级=VIP AND 库存=充足 AND 质检=通过 THEN 可加急=True"}},{"id":"struct_knowledge_graph","label":"Structure","name":"Enterprise_Knowledge_Graph","chinese_name":"企业知识图谱","definition":"将分散、异构、多源的企业数据，在统一本体逻辑下实现可理解、可关联、可推理的图结构知识库。","source":"导读_section_AI时代","props":{"palantir":"Palantir：本体驱动的统一业务语义框架","entropy":"企业知识低熵化的最终载体形态"}},{"id":"struct_math_calculus","label":"Structure","name":"Mathematical_Structure","chinese_name":"数学结构（微积分里程碑）","definition":"科学家将客观规律转化为可计算、可验证、可应用知识的形式载体，以微积分为里程碑。","source":"导读_section_科学的抉择","props":{"significance":"微积分使人类从描述静态世界跨越至预测动态未来","analogy":"本体对业务知识的形式化 = 微积分对物理规律的形式化"}},{"id":"struct_physical_law","label":"Structure","name":"Physical_Law_Structure","chinese_name":"物理规律结构","definition":"科学家通过放弃对本源的执念，专注发现和掌控的世界运作规律体系。","source":"导读_section_科学的抉择","props":{"examples":"牛顿力学结构 | 爱因斯坦时空结构 | 量子概率分布","lesson":"这些结构并非世界本源，而是本源在人类可认知范围内的显现方式"}},{"id":"struct_highdim_interface","label":"Structure","name":"HighDim_Geometric_Interface","chinese_name":"高维几何接口","definition":"连接工程本体论与高维数学物理的预留扩展接口，用于探索本体在高维空间中的几何表示与拓扑性质。","source":"导读_section_附录F","props":{"book_anchor":"附录F","math":"Calabi-Yau镜像对称 | Noether定理 | 全息原理 | 拓扑流形","status":"OPEN_EXTENSION — OntoHighDim核心研究边界"}},{"id":"proc_entropy_reduction","label":"Process","name":"Knowledge_Entropy_Reduction","chinese_name":"知识熵减过程","definition":"将企业业务知识从高熵状态转化为低熵状态的系统性工程过程。","source":"导读_section_工程本体论","props":{"input":"高熵知识：文档、数据库、员工头脑中分散的隐性知识","output":"低熵知识资产：可查询、可推理、可复用的形式化本体","mechanism":"概念定义 → 关系建模 → 规则形式化 → 推理验证 → 持续演化"}},{"id":"proc_formalization","label":"Process","name":"Knowledge_Formalization","chinese_name":"知识形式化","definition":"将隐性的业务概念、规则和关系，用形式化语言精确表达，使其可被机器理解和处理的过程。","source":"导读_section_工程本体论","props":{"skill":"结构化思维 + 系统化建模 + 形式化表达","languages":"OWL / RDF / SWRL"}},{"id":"proc_sci_discovery","label":"Process","name":"Scientific_Structure_Discovery","chinese_name":"科学结构发现过程","definition":"科学家通过放弃对本源的执念，专注观察、实验、归纳，将混沌自然现象转化为精确可计算结构的过程。","source":"导读_section_科学的抉择","props":{"entropy_chain":"混沌现象（高熵）→ 观察归纳 → 精确定律（低熵）→ 可预测技术","analogy":"与本体工程师路径同构：放弃哲学追问，聚焦结构化"}},{"id":"proc_llm_hallucination","label":"Process","name":"LLM_Hallucination","chinese_name":"LLM幻觉生成","definition":"大语言模型因依赖统计规律而非确定性知识，产生不存在事实内容的根本性技术缺陷。","source":"导读_section_AI时代","props":{"root_cause":"LLM训练于概率分布，无法访问企业专属确定性知识","three_problems":"幻觉 | 语义缺失 | 决策不可追溯"}},{"id":"proc_onto_reasoning","label":"Process","name":"Ontology_Based_Reasoning","chinese_name":"基于本体的推理","definition":"利用描述逻辑推理引擎，在已有本体定义和规则基础上，自动推导出新的、隐含的知识结论。","source":"导读_section_AI时代","props":{"types":"TBox推理 | ABox推理 | SWRL规则触发 | 一致性检验","anti_hallucination":"每个推理步骤均可追溯，完全杜绝统计猜测"}},{"id":"proc_agent_decision","label":"Process","name":"Agent_Ontology_Decision","chinese_name":"AI Agent本体驱动决策","definition":"AI Agent通过查询本体、应用形式化业务规则，得出明确、可解释、可审计决策结论的过程。","source":"导读_section_AI时代","props":{"flow":"业务请求 → 查询本体 → 触发SWRL规则 → 推理计算 → 确定结论+推理路径","metaphor":"有本体=有地图的司机；无本体=陌生城市无地图凭感觉行驶"}},{"id":"tech_owl","label":"Technology","name":"OWL","chinese_name":"网络本体语言 OWL","definition":"W3C标准本体描述语言，支持类定义、属性定义、公理约束和描述逻辑推理，是工程本体论的核心实现语言。","source":"导读_section_书籍定位","props":{"full_name":"Web Ontology Language","book":"第1-3章理论基础核心内容","capabilities":"类层次建模 | 属性限制 | 等价类/不相交类 | 个体断言"}},{"id":"tech_rdf","label":"Technology","name":"RDF","chinese_name":"资源描述框架 RDF","definition":"W3C标准知识表示框架，以主谓宾三元组形式表达知识，是OWL的底层数据模型。","source":"导读_section_书籍定位","props":{"full_name":"Resource Description Framework","triple":"Subject → Predicate → Object，如：客户001 → 拥有 → 订单A","book":"第1-3章配套OWL讲解"}},{"id":"tech_sparql","label":"Technology","name":"SPARQL","chinese_name":"SPARQL查询语言","definition":"专为RDF知识图谱设计的查询语言，支持模式匹配、联合查询、推理结果查询，是访问本体知识库的核心接口。","source":"导读_section_阅读指南","props":{"analogy":"本体知识库的SQL，面向图结构语义网数据","book":"第4章核心内容","agent_interface":"AI Agent访问本体知识的标准接口"}},{"id":"tech_swrl","label":"Technology","name":"SWRL","chinese_name":"语义网规则语言 SWRL","definition":"在OWL本体基础上定义Horn子句规则，支持条件-结论式业务规则的形式化表达和自动推理触发。","source":"导读_section_阅读指南","props":{"full_name":"Semantic Web Rule Language","book":"第5章核心内容","syntax":"VIP(x) ∧ 库存充足(x) → 可加急(x)"}},{"id":"tech_llm","label":"Technology","name":"Large_Language_Model","chinese_name":"大语言模型 LLM","definition":"基于Transformer架构在大规模语料训练的概率语言生成模型，擅长自然语言理解和流畅文本生成。","source":"导读_section_AI时代","props":{"strengths":"自然语言理解 | 流畅文本生成 | 多任务泛化","weaknesses":"幻觉 | 语义缺失 | 决策不可追溯","complement":"本体为LLM提供确定性知识锚点，弥补三大根本性缺陷"}},{"id":"tech_ai_agent","label":"Technology","name":"AI_Agent","chinese_name":"AI智能体","definition":"能够自主感知环境、规划行动、执行任务的AI系统，在本体驱动架构中以本体为知识基础做出可解释决策。","source":"导读_section_AI时代","props":{"without_onto":"陌生城市没有地图的司机，只能凭感觉行驶","with_onto":"拥有清晰业务地图、规则手册和最优路径指引的智能执行者","book":"结束语 — 本体与AI Agent深度集成"}},{"id":"tech_palantir","label":"Technology","name":"Palantir","chinese_name":"Palantir数据决策平台","definition":"全球顶尖数据决策平台，核心竞争力是基于本体构建统一业务语义与知识框架，实现异构多源数据的可理解、可关联、可推理。","source":"导读_section_AI时代","props":{"problems_solved":"大模型幻觉 | 语义不准 | 决策不可解释","book":"第8-9章企业案例","target":"高安全、高可靠、强合规的关键业务场景"}},{"id":"tech_reasoner","label":"Technology","name":"DL_Reasoner","chinese_name":"描述逻辑推理引擎","definition":"基于描述逻辑实现OWL本体自动推理的软件引擎，支持分类、一致性检验和隐含知识发现。","source":"导读_section_阅读指南","props":{"implementations":"HermiT | Pellet | FaCT++","book":"第6章 — 推理逻辑和方法","role":"为每个推理结论提供完整逻辑证明链，实现AI决策完全可审计"}},{"id":"ex_customer","label":"Example","name":"Customer_Modeling","chinese_name":"客户类建模案例","definition":"哲学追问「客户的本质」vs 工程直接定义Customer类的属性、关系与约束规则的核心对比案例。","source":"导读_section_工程本体论","props":{"philosophical":"柏拉图理念or现实个体？无法落地的思辨","engineering":"class:Customer | props:name,contactInfo,memberLevel | rel:hasOrder","outcome":"可直接转化为OWL代码存储至数据库供AI查询"}},{"id":"ex_urgent_delivery","label":"Example","name":"Urgent_Delivery","chinese_name":"加急发货决策案例","definition":"附录I核心案例：AI Agent基于本体判断「一份订单能否加急发货」，展示本体如何为Agent提供确定性决策依据。","source":"导读_section_AI时代","props":{"query":"订单X能否加急发货？","checks":"是否VIP客户 | 库存是否充足 | 质检是否通过","book_location":"附录I — 订单案例","mechanism":"查询本体+触发SWRL规则 → 无需LLM猜测，直接得出明确结论"}},{"id":"ex_newton_einstein","label":"Example","name":"Newton_Einstein","chinese_name":"牛顿-爱因斯坦科学结构案例","definition":"科学家通过放弃本源追问、专注结构发现实现的两个里程碑式熵减案例。","source":"导读_section_科学的抉择","props":{"newton":"放弃时空本质追问 → 发现天体运动力学结构","einstein":"放弃物质终极追问 → 发现时空弯曲与质能转换（E=mc²）","lesson":"这些结构并非世界本源，而是本源在可认知范围内的显现方式"}},{"id":"ex_calculus","label":"Example","name":"Calculus_Milestone","chinese_name":"微积分作为结构掌控里程碑","definition":"微积分是人类将动态变化形式化的里程碑，让原本无形的运动、演化变得可计算。","source":"导读_section_科学的抉择","props":{"before":"几何学只能描述静态世界","after":"微分方程可预测动态未来","analogy":"本体对业务知识的形式化 ≈ 微积分对物理规律的形式化"}},{"id":"ex_pizza","label":"Example","name":"Pizza_Tutorial","chinese_name":"Pizza本体教程","definition":"OWL入门经典案例，以Pizza为领域建模，初学者建立直观理解的最佳起点。","source":"导读_section_阅读指南","props":{"book_location":"附录B.7","path":"初学者先从此动手实践，再系统学习第1-3章","value":"通过具体领域快速掌握OWL类、属性、约束建模方法"}}],"edges":[{"from":"onto_philo","to":"onto_eng","relation":"contrastsWith","description":"哲学追问「世界是什么」，工程回答「如何描述世界使机器理解」。前者无法落地，后者直接服务工程实践。"},{"from":"concept_existence","to":"struct_class_prop_rel","relation":"contrastsWith","description":"哲学追问「客户本质」vs 工程直接定义Customer类与属性约束"},{"from":"concept_high_entropy","to":"concept_low_entropy","relation":"contrastsWith","description":"高熵（混沌隐性模糊）对立于低熵（结构化形式化显性化），本体工程驱动此转换"},{"from":"proc_llm_hallucination","to":"proc_onto_reasoning","relation":"contrastsWith","description":"LLM幻觉基于统计无法溯源；本体推理基于形式逻辑完全可追溯"},{"from":"onto_philo","to":"concept_cognitive_structure","relation":"contrastsWith","description":"哲学从追问存在本质转向研究认知结构自身——现代哲学的内在转型"},{"from":"onto_eng","to":"concept_high_entropy","relation":"reduces","description":"工程本体论将业务知识从分散隐性转为形式化知识资产，完成企业知识熵减"},{"from":"proc_formalization","to":"concept_high_entropy","relation":"reduces","description":"知识形式化过程直接降低企业知识熵"},{"from":"proc_sci_discovery","to":"concept_high_entropy","relation":"reduces","description":"科学发现是人类史上最大规模熵减工程：混沌现象→精确定律"},{"from":"concept_ssot","to":"proc_llm_hallucination","relation":"reduces","description":"SSOT从根源切断LLM幻觉路径，所有AI陈述均可追溯至结构化知识"},{"from":"struct_reasoning_logic","to":"proc_llm_hallucination","relation":"reduces","description":"形式推理以清晰路径取代统计猜测，彻底消除幻觉式陈述"},{"from":"struct_business_rules","to":"proc_llm_hallucination","relation":"reduces","description":"SWRL业务规则为Agent提供确定性依据，消除语义缺失引发的幻觉"},{"from":"proc_entropy_reduction","to":"concept_high_entropy","relation":"reduces","description":"知识熵减过程是本体工程核心价值：主动持续将知识从混沌转为有序"},{"from":"onto_eng","to":"proc_onto_reasoning","relation":"enables","description":"工程本体论为形式推理提供结构化知识基础，本体是推理的前提"},{"from":"onto_eng","to":"tech_ai_agent","relation":"enables","description":"工程本体论为AI Agent提供业务导航能力：地形+规则+最优路径"},{"from":"concept_ssot","to":"proc_agent_decision","relation":"enables","description":"SSOT使Agent每个决策有明确知识依据，实现可解释可审计判断"},{"from":"struct_class_prop_rel","to":"tech_owl","relation":"enables","description":"类-属性-关系三元结构是OWL的概念基础"},{"from":"tech_owl","to":"struct_knowledge_graph","relation":"enables","description":"OWL提供知识图谱的语义层，使图谱从数据结构升级为可推理知识网络"},{"from":"tech_sparql","to":"proc_onto_reasoning","relation":"enables","description":"SPARQL是AI Agent访问本体知识库的标准查询接口"},{"from":"tech_swrl","to":"struct_business_rules","relation":"enables","description":"SWRL将业务专家判断逻辑形式化为机器可执行规则"},{"from":"tech_palantir","to":"struct_knowledge_graph","relation":"enables","description":"Palantir以本体驱动方式构建企业级统一知识图谱"},{"from":"struct_highdim_interface","to":"concept_self_evolving","relation":"enables","description":"高维几何接口为自演化本体提供数学基础：流形变形+几何约束"},{"from":"struct_highdim_interface","to":"concept_highdim_geo","relation":"enables","description":"高维几何接口是工程本体论向高维数学物理扩展的技术桥梁"},{"from":"proc_onto_reasoning","to":"proc_agent_decision","relation":"enables","description":"本体推理是AI Agent可解释决策的计算引擎"},{"from":"concept_knowledge_structure","to":"onto_eng","relation":"enables","description":"知识结构演进洞见为工程本体论提供历史合法性和认识论基础"},{"from":"tech_llm","to":"proc_llm_hallucination","relation":"enables","description":"LLM因统计概率分布，缺乏本体约束时天然倾向于生成幻觉"},{"from":"tech_reasoner","to":"proc_onto_reasoning","relation":"enables","description":"描述逻辑推理引擎是本体推理的计算执行者，提供完整逻辑证明链"},{"from":"concept_business_semantics","to":"proc_agent_decision","relation":"enables","description":"明确业务语义使Agent基于确定定义而非统计猜测做判断"},{"from":"struct_physical_law","to":"struct_math_calculus","relation":"enables","description":"数学结构是物理规律得以精确表达的形式语言载体"},{"from":"tech_owl","to":"onto_eng","relation":"appliesIn","description":"OWL是工程本体论的核心实现语言"},{"from":"tech_rdf","to":"onto_eng","relation":"appliesIn","description":"RDF是工程本体论的底层数据表示框架"},{"from":"tech_sparql","to":"onto_eng","relation":"appliesIn","description":"SPARQL是本体知识库的标准查询层"},{"from":"onto_eng","to":"tech_palantir","relation":"appliesIn","description":"工程本体论方法在Palantir平台中大规模商业化落地"},{"from":"proc_agent_decision","to":"ex_urgent_delivery","relation":"appliesIn","description":"Agent本体驱动决策在加急发货判断案例中具体应用"},{"from":"struct_class_prop_rel","to":"ex_customer","relation":"appliesIn","description":"类-属性-关系结构在客户建模案例中直接应用"},{"from":"tech_ai_agent","to":"ex_urgent_delivery","relation":"appliesIn","description":"AI Agent在加急发货案例中以本体为导航做出可审计判断"},{"from":"struct_math_calculus","to":"ex_calculus","relation":"appliesIn","description":"数学结构概念在微积分里程碑案例中具体体现"},{"from":"tech_llm","to":"onto_eng","relation":"appliesIn","description":"LLM在本体驱动架构中作为自然语言接口层"},{"from":"ex_customer","to":"onto_eng","relation":"exemplifies","description":"客户类建模案例是工程本体论核心范式的最直接例证"},{"from":"ex_urgent_delivery","to":"proc_agent_decision","relation":"exemplifies","description":"加急发货案例是Agent本体驱动决策过程的标准示例"},{"from":"ex_newton_einstein","to":"proc_sci_discovery","relation":"exemplifies","description":"牛顿爱因斯坦突破是「放弃本源追问聚焦结构发现」方法论的历史例证"},{"from":"ex_calculus","to":"concept_entropy","relation":"exemplifies","description":"微积分是知识熵减隐喻的典型例证"},{"from":"ex_pizza","to":"tech_owl","relation":"exemplifies","description":"Pizza本体教程是OWL建模方法论的经典入门示例"},{"from":"tech_palantir","to":"onto_eng","relation":"exemplifies","description":"Palantir是工程本体论大规模商业落地的最佳业界范例"},{"from":"ex_urgent_delivery","to":"concept_ssot","relation":"exemplifies","description":"加急发货案例是Single Source of Truth的完整体现"},{"from":"ex_newton_einstein","to":"concept_entropy","relation":"exemplifies","description":"牛顿爱因斯坦发现是人类史上最大规模熵减工程的具体体现"},{"from":"concept_business_semantics","to":"onto_eng","relation":"exemplifies","description":"业务语义是工程本体论核心价值的直接体现"},{"from":"struct_physical_law","to":"concept_entropy","relation":"exemplifies","description":"物理规律结构是科学熵减最深刻成果"}]};
+
+// ── Config ────────────────────────────────────────────────────
+const COLORS = {
+  OntologyType: { bg:'#c9a84c', border:'#a07830', text:'#07080f', glow:'rgba(201,168,76,0.4)' },
+  Concept:      { bg:'#1a3a3a', border:'#3ecfcf', text:'#3ecfcf', glow:'rgba(62,207,207,0.3)' },
+  Structure:    { bg:'#1e1830', border:'#a78bfa', text:'#a78bfa', glow:'rgba(167,139,250,0.3)' },
+  Process:      { bg:'#2a1515', border:'#f87171', text:'#f87171', glow:'rgba(248,113,113,0.3)' },
+  Technology:   { bg:'#0f2040', border:'#4a9eff', text:'#4a9eff', glow:'rgba(74,158,255,0.3)' },
+  Example:      { bg:'#0f2a1e', border:'#6ee7b7', text:'#6ee7b7', glow:'rgba(110,231,183,0.3)' },
+};
+const REL_COLORS = {
+  contrastsWith: '#e2a84b',
+  reduces:       '#3ecfcf',
+  enables:       '#a78bfa',
+  appliesIn:     '#4a9eff',
+  exemplifies:   '#6ee7b7',
+};
+const LABEL_ZH = {
+  OntologyType:'本体论类型', Concept:'核心概念',
+  Structure:'结构', Process:'过程', Technology:'技术', Example:'案例'
+};
+
+// ── Build vis datasets ────────────────────────────────────────
+let allNodeIds = new Set(RAW.nodes.map(n=>n.id));
+let activeLabels = new Set(Object.keys(COLORS));
+let activeRels = new Set(Object.keys(REL_COLORS));
+
+function buildNodes(filter=null) {
+  return RAW.nodes
+    .filter(n => !filter || filter.includes(n.id))
+    .filter(n => activeLabels.has(n.label))
+    .map(n => {
+      const c = COLORS[n.label];
+      return {
+        id: n.id,
+        label: n.chinese_name,
+        color: { background: c.bg, border: c.border, highlight:{background:c.bg, border:c.glow} },
+        font: { color: c.text, size: 12, face:'Noto Serif SC, sans-serif', bold:{ color:c.text, size:13 } },
+        borderWidth: 1.5,
+        borderWidthSelected: 2.5,
+        shape: n.label==='OntologyType' ? 'box' : n.label==='Example' ? 'ellipse' : 'roundRect',
+        margin: { top:8, right:12, bottom:8, left:12 },
+        shadow: { enabled:true, color:c.glow, size:8, x:0, y:0 },
+      };
+    });
+}
+
+function buildEdges(filter=null) {
+  return RAW.edges
+    .filter(e => !filter || (filter.includes(e.from) && filter.includes(e.to)))
+    .filter(e => activeRels.has(e.relation))
+    .filter(e => activeLabels.has(RAW.nodes.find(n=>n.id===e.from)?.label) && activeLabels.has(RAW.nodes.find(n=>n.id===e.to)?.label))
+    .map((e,i) => ({
+      id: i,
+      from: e.from,
+      to: e.to,
+      label: e.relation,
+      color: { color: REL_COLORS[e.relation]+'88', highlight: REL_COLORS[e.relation], hover: REL_COLORS[e.relation] },
+      font: { color: REL_COLORS[e.relation], size: 9, face:'JetBrains Mono, monospace', align:'middle', strokeWidth:0, background:'rgba(7,8,15,0.7)' },
+      width: 1.2,
+      hoverWidth: 2,
+      selectionWidth: 2.5,
+      arrows: { to:{ enabled:true, scaleFactor:0.5 } },
+      smooth: { type:'continuous', roundness:0.2 },
+      _data: e,
+    }));
+}
+
+// ── Init Network ──────────────────────────────────────────────
+let network, nodesDS, edgesDS;
+
+function initNetwork(nodeFilter=null) {
+  nodesDS = new vis.DataSet(buildNodes(nodeFilter));
+  edgesDS = new vis.DataSet(buildEdges(nodeFilter));
+
+  const options = {
+    physics: {
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: { gravitationalConstant:-60, centralGravity:0.01, springLength:160, springConstant:0.06, damping:0.5 },
+      stabilization: { iterations:200, updateInterval:10 }
+    },
+    interaction: { hover:true, tooltipDelay:200, hideEdgesOnDrag:false, multiselect:false },
+    layout: { improvedLayout:true },
+  };
+
+  if (!network) {
+    const container = document.getElementById('graph');
+    network = new vis.Network(container, {nodes:nodesDS, edges:edgesDS}, options);
+    network.on('click', onNodeClick);
+    network.on('hoverNode', e=>{ document.getElementById('graph').style.cursor='pointer'; });
+    network.on('blurNode', e=>{ document.getElementById('graph').style.cursor='default'; });
+  } else {
+    network.setData({nodes:nodesDS, edges:edgesDS});
+  }
+}
+
+// ── Presets ───────────────────────────────────────────────────
+const PRESETS = {
+  all: null,
+  entropy: ['concept_high_entropy','concept_low_entropy','concept_entropy',
+            'onto_eng','proc_entropy_reduction','proc_formalization',
+            'proc_sci_discovery','concept_ssot','struct_reasoning_logic',
+            'struct_business_rules','proc_llm_hallucination'],
+  ai: ['onto_eng','tech_llm','tech_ai_agent','tech_palantir',
+       'proc_llm_hallucination','proc_onto_reasoning','proc_agent_decision',
+       'concept_ssot','struct_knowledge_graph','struct_business_rules',
+       'concept_business_semantics','ex_urgent_delivery','tech_reasoner'],
+  philo: ['onto_philo','onto_eng','concept_existence','struct_class_prop_rel',
+          'concept_cognitive_structure','concept_entropy','proc_sci_discovery',
+          'ex_newton_einstein','ex_customer','ex_calculus'],
+  highdim: ['struct_highdim_interface','concept_highdim_geo','concept_self_evolving',
+            'onto_eng','concept_entropy','concept_knowledge_structure'],
+  tech: ['tech_owl','tech_rdf','tech_sparql','tech_swrl','tech_llm',
+         'tech_ai_agent','tech_palantir','tech_reasoner',
+         'onto_eng','struct_knowledge_graph','struct_business_rules',
+         'proc_onto_reasoning','ex_pizza'],
+};
+
+function applyPreset(name) {
+  closeDetail();
+  initNetwork(PRESETS[name]);
+}
+
+// ── Legend ────────────────────────────────────────────────────
+function buildLegend() {
+  const counts = {};
+  RAW.nodes.forEach(n=>{ counts[n.label]=(counts[n.label]||0)+1; });
+  const el = document.getElementById('legend');
+  Object.entries(COLORS).forEach(([label, c]) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item active';
+    item.dataset.label = label;
+    item.innerHTML = `<div class="legend-dot" style="background:${c.border}"></div><span class="legend-name">${LABEL_ZH[label]}</span><span class="legend-count">${counts[label]||0}</span>`;
+    item.onclick = () => toggleLabel(label, item);
+    el.appendChild(item);
+  });
+}
+
+function toggleLabel(label, el) {
+  if (activeLabels.has(label)) { activeLabels.delete(label); el.classList.remove('active'); }
+  else { activeLabels.add(label); el.classList.add('active'); }
+  initNetwork();
+}
+
+// ── Rel filters ───────────────────────────────────────────────
+function buildRelFilters() {
+  const el = document.getElementById('rel-filters');
+  Object.entries(REL_COLORS).forEach(([rel, color]) => {
+    const chip = document.createElement('span');
+    chip.className = 'rel-chip active';
+    chip.innerHTML = `<span class="rel-dot" style="background:${color}"></span>${rel}`;
+    chip.onclick = () => toggleRel(rel, chip);
+    el.appendChild(chip);
+  });
+}
+
+function toggleRel(rel, el) {
+  if (activeRels.has(rel)) { activeRels.delete(rel); el.classList.remove('active'); }
+  else { activeRels.add(rel); el.classList.add('active'); }
+  initNetwork();
+}
+
+// ── Search ────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  if (!q) { nodesDS.update(buildNodes()); return; }
+  RAW.nodes.forEach(n => {
+    const match = n.chinese_name.toLowerCase().includes(q) || n.name.toLowerCase().includes(q) || (n.definition||'').toLowerCase().includes(q);
+    nodesDS.update([{ id: n.id, opacity: match ? 1 : 0.15 }]);
+  });
+});
+
+// ── Detail Panel ──────────────────────────────────────────────
+function onNodeClick(params) {
+  if (!params.nodes.length) { return; }
+  const nodeId = params.nodes[0];
+  const node = RAW.nodes.find(n=>n.id===nodeId);
+  if (!node) return;
+  showDetail(node);
+}
+
+function showDetail(node) {
+  const c = COLORS[node.label];
+  const panel = document.getElementById('detail-panel');
+  const header = document.getElementById('detail-header');
+  const body = document.getElementById('detail-body');
+
+  header.innerHTML = `
+    <div class="detail-type-badge" style="background:${c.bg};color:${c.text};border:1px solid ${c.border}40">${LABEL_ZH[node.label]}</div>
+    <div class="detail-cn-name" style="color:${c.text}">${node.chinese_name}</div>
+    <div class="detail-en-name">${node.name}</div>
+  `;
+
+  // Build props
+  const skipKeys = ['chinese_name','definition','source'];
+  const propRows = Object.entries(node.props||{})
+    .filter(([k])=>!skipKeys.includes(k) && node.props[k])
+    .map(([k,v])=>`<div class="detail-prop"><div class="detail-prop-key">${k}</div><div class="detail-prop-val">${v}</div></div>`)
+    .join('');
+
+  // Connections
+  const outEdges = RAW.edges.filter(e=>e.from===node.id);
+  const inEdges  = RAW.edges.filter(e=>e.to===node.id);
+
+  function edgeItem(e, isOut) {
+    const otherId = isOut ? e.to : e.from;
+    const other = RAW.nodes.find(n=>n.id===otherId);
+    if (!other) return '';
+    const rc = COLORS[other.label];
+    const relColor = REL_COLORS[e.relation];
+    return `<div class="conn-item" onclick="focusNode('${otherId}')">
+      <span class="conn-rel" style="background:${relColor}22;color:${relColor}">${e.relation}</span>
+      <div><div class="conn-name">${other.chinese_name}</div><div class="conn-dir">${isOut?'→ 指向':'← 来自'}</div></div>
+    </div>`;
+  }
+
+  const connHtml = [...outEdges.map(e=>edgeItem(e,true)), ...inEdges.map(e=>edgeItem(e,false))].join('');
+
+  body.innerHTML = `
+    ${node.definition ? `<div class="detail-section">
+      <div class="detail-section-label">定义</div>
+      <div class="detail-def">${node.definition}</div>
+    </div>` : ''}
+    ${propRows ? `<div class="detail-section">
+      <div class="detail-section-label">属性</div>
+      ${propRows}
+    </div>` : ''}
+    ${connHtml ? `<div class="detail-section">
+      <div class="detail-section-label">关系连接 (${outEdges.length+inEdges.length})</div>
+      <div class="conn-list">${connHtml}</div>
+    </div>` : ''}
+    <div class="detail-section">
+      <div class="detail-section-label">来源</div>
+      <div class="detail-prop-val" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2)">${node.source||''}</div>
+    </div>
+  `;
+
+  panel.classList.add('open');
+}
+
+function focusNode(id) {
+  network.focus(id, {scale:1.4, animation:{duration:600, easingFunction:'easeInOutQuad'}});
+  network.selectNodes([id]);
+  const node = RAW.nodes.find(n=>n.id===id);
+  if (node) showDetail(node);
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  network && network.unselectAll();
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+buildLegend();
+buildRelFilters();
+initNetwork();
+</script>
+</body>
+</html>
